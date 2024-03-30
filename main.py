@@ -2,7 +2,7 @@ from mss import mss
 
 # Define the region to capture
 # X, Y, Width, Height
-region = {'top': 500, 'left': 500, 'width': 500, 'height': 500}
+region = {'top': 500, 'left': 500, 'width': 500, 'height': 400}
 
 with mss() as sct:
     # Capture the defined region
