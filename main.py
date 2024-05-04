@@ -74,7 +74,6 @@ if __name__ == "__main__":
     frame_processor = FrameProcessor("path_to_yolov8_model_weights")
     frame_processor.start()
 
-    # Wait for the key combination Ctrl + Alt + F1 to stop the program
     while not frame_processor.quit_keys_pressed:
         time.sleep(0.1)
 
