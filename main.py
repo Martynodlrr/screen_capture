@@ -1,76 +1,70 @@
 from mss import mss
-import time
 import cv2
-from pynput.mouse import Listener as MouseListener
+import numpy as np
 from threading import Thread
+import time
+import pynput.mouse
+from your_yolo_module import YOLOv8, preprocess_image
 
-# Assuming the YOLO model and necessary preprocessing functions are already defined
-from your_yolo_module import YOLOv8, preprocess_image  # You'll need to define or adjust these imports
-
-# Initialize the object detection model
-yolo_model = YOLOv8("path_to_yolov8_model_weights")
-
-def capture_and_process_frames():
-    """
-    Continuously capture and process frames.
-    """
-    with mss() as sct:
-        monitor = sct.monitors[1]
-        region = {
-            'left': monitor['left'] + (monitor['width'] - 500) // 2,
-            'top': monitor['top'] + (monitor['height'] - 400) // 2,
-            'width': 500,
-            'height': 500
+class FrameProcessor:
+    def __init__(self, model_path, monitor_index=1, region_size=(500, 500)):
+        self.yolo_model = YOLOv8(model_path)
+        self.monitor = mss().monitors[monitor_index]
+        self.region = {
+            'left': self.monitor['left'] + (self.monitor['width'] - region_size[0]) // 2,
+            'top': self.monitor['top'] + (self.monitor['height'] - region_size[1]) // 2,
+            'width': region_size[0],
+            'height': region_size[1]
         }
+        self.stop_thread = False
+        self.mouse_listener = pynput.mouse.Listener(on_click=self.on_click)
 
+    def on_click(self, x, y, button, pressed):
+        if button == pynput.mouse.Button.right and pressed:
+            self.mouse_clicked = True
+
+    def start(self):
+        self.mouse_clicked = False
+        self.mouse_listener.start()
+        self.thread = Thread(target=self.capture_and_process_frames)
+        self.thread.start()
+
+    def capture_and_process_frames(self):
         frame_count = 0
         last_obj_count = 0
         total_clicks = 0
         accurate_clicks = 0
 
-        while not stop_thread:
-            sct_img = sct.grab(region)
-            frame_count += 1
+        while not self.stop_thread:
+            with mss() as sct:
+                sct_img = sct.grab(self.region)
+                frame_count += 1
+                frame = cv2.cvtColor(np.array(sct_img), cv2.COLOR_BGRA2BGR)
+                detections = self.yolo_model.detect(frame)
 
-            # Convert captured image to a format suitable for object detection
-            frame = cv2.cvtColor(np.array(sct_img), cv2.COLOR_BGRA2BGR)
-            detections = yolo_model.detect(frame)
-
-            # Count detected objects
             current_obj_count = len(detections)
             print(f"Detected {current_obj_count} objects in frame {frame_count}")
 
-            # Check mouse events and adjust scores
-            if mouse_clicked:
+            if self.mouse_clicked:
                 total_clicks += 1
                 if current_obj_count < last_obj_count:
                     accurate_clicks += 1
-                mouse_clicked = False
+                self.mouse_clicked = False
 
             last_obj_count = current_obj_count
 
-    accuracy = accurate_clicks / total_clicks if total_clicks > 0 else 0
-    print(f"Accuracy: {accuracy}")
-    return accuracy
+        accuracy = accurate_clicks / total_clicks if total_clicks > 0 else 0
+        print(f"Accuracy: {accuracy}")
 
-# Mouse event handling
-mouse_clicked = False
-def on_click(x, y, button, pressed):
-    global mouse_clicked
-    if button == pynput.mouse.Button.right and pressed:
-        mouse_clicked = True
+    def stop(self):
+        self.stop_thread = True
+        self.thread.join()
+        self.mouse_listener.stop()
 
-# Start mouse listener
-listener = MouseListener(on_click=on_click)
-listener.start()
+if __name__ == "__main__":
+    frame_processor = FrameProcessor("path_to_yolov8_model_weights")
+    frame_processor.start()
 
-# Start capturing frames
-stop_thread = False
-thread = Thread(target=capture_and_process_frames)
-thread.start()
-
-# Example control to stop the process (e.g., after 30 seconds)
-time.sleep(30)
-stop_thread = True
-thread.join()
-listener.stop()
+    # Example control to stop the process (e.g., after 30 seconds)
+    time.sleep(30)
+    frame_processor.stop()
