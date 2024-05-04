@@ -4,6 +4,7 @@ import numpy as np
 from threading import Thread
 import time
 import pynput.mouse
+from pynput.keyboard import Listener as KeyboardListener, KeyCode
 from your_yolo_module import YOLOv8, preprocess_image
 
 class FrameProcessor:
@@ -18,14 +19,21 @@ class FrameProcessor:
         }
         self.stop_thread = False
         self.mouse_listener = pynput.mouse.Listener(on_click=self.on_click)
+        self.keyboard_listener = KeyboardListener(on_press=self.on_key_press)
+        self.quit_keys_pressed = False
 
     def on_click(self, x, y, button, pressed):
         if button == pynput.mouse.Button.right and pressed:
             self.mouse_clicked = True
 
+    def on_key_press(self, key):
+        if key == (pynput.keyboard.Key.ctrl, pynput.keyboard.Key.alt, pynput.keyboard.KeyCode.from_char('f1')):
+            self.quit_keys_pressed = True
+
     def start(self):
         self.mouse_clicked = False
         self.mouse_listener.start()
+        self.keyboard_listener.start()
         self.thread = Thread(target=self.capture_and_process_frames)
         self.thread.start()
 
@@ -35,7 +43,7 @@ class FrameProcessor:
         total_clicks = 0
         accurate_clicks = 0
 
-        while not self.stop_thread:
+        while not self.stop_thread and not self.quit_keys_pressed:
             with mss() as sct:
                 sct_img = sct.grab(self.region)
                 frame_count += 1
@@ -60,11 +68,14 @@ class FrameProcessor:
         self.stop_thread = True
         self.thread.join()
         self.mouse_listener.stop()
+        self.keyboard_listener.stop()
 
 if __name__ == "__main__":
     frame_processor = FrameProcessor("path_to_yolov8_model_weights")
     frame_processor.start()
 
-    # Example control to stop the process (e.g., after 30 seconds)
-    time.sleep(30)
+    # Wait for the key combination Ctrl + Alt + F1 to stop the program
+    while not frame_processor.quit_keys_pressed:
+        time.sleep(0.1)
+
     frame_processor.stop()
