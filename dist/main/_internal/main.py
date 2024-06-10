@@ -13,20 +13,21 @@ import logging
 from io import BytesIO
 from PIL import Image
 
-# Set up logging to a file
-logging.basicConfig(filename="app.log", level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Load the API key from .env file located in the same directory as the executable
-env_path = os.path.join(os.path.dirname(__file__), '.env')
-logging.info("Loading environment variables from: %s", env_path)
-load_dotenv(env_path)
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 API_KEY = os.getenv("API_KEY")
+DEBUG = os.getenv("DEBUG")
 
 if not API_KEY:
     logging.error("API_KEY not found in .env file.")
     raise ValueError("API_KEY not found in .env file.")
 else:
     logging.info("API_KEY loaded successfully")
+
+# Set up logging to a file
+if DEBUG:
+    logging.basicConfig(filename="app.log", level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Initialize pygame and set up the overlay window
 pygame.init()
@@ -40,7 +41,8 @@ hwnd = pygame.display.get_wm_info()["window"]
 ctypes.windll.user32.SetWindowLongW(hwnd, -20, ctypes.windll.user32.GetWindowLongW(hwnd, -20) | 0x80000 | 0x20)
 ctypes.windll.user32.SetLayeredWindowAttributes(hwnd, 0x000000, 0, 0x2)
 
-logging.info("Overlay window created successfully")
+if DEBUG:
+    logging.info("Overlay window created successfully")
 
 class FrameProcessor:
     def __init__(self, api_url, api_key, model_id):
@@ -60,7 +62,8 @@ class FrameProcessor:
     def on_click(self, x, y, button, pressed):
         if button == mouse.Button.left and pressed:
             self.mouse_clicked = True
-            logging.info("Mouse clicked at (%d, %d)", x, y)
+            if DEBUG:
+                logging.info("Mouse clicked at (%d, %d)", x, y)
 
     def on_key_press(self, key):
         if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r:
@@ -69,7 +72,8 @@ class FrameProcessor:
             self.alt_pressed = True
         if key == keyboard.Key.f12 and self.ctrl_pressed and self.alt_pressed:
             self.quit_keys_pressed = True
-            logging.info("Quit key combination pressed")
+            if DEBUG:
+                logging.info("Quit key combination pressed")
 
     def on_key_release(self, key):
         if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r:
@@ -82,7 +86,8 @@ class FrameProcessor:
         self.keyboard_listener.start()
         self.thread = Thread(target=self.capture_and_process_frames)
         self.thread.start()
-        logging.info("FrameProcessor started")
+        if DEBUG:
+                logging.info("FrameProcessor started")
 
     def capture_and_process_frames(self):
         last_obj_count = 0
@@ -100,9 +105,11 @@ class FrameProcessor:
                     result = self.client.infer(pil_img, model_id=self.model_id)
                     detections = result['predictions']
                     current_obj_count = len(detections)
-                    logging.debug("Current object count: %d", current_obj_count)
+                    if DEBUG:
+                        logging.debug("Current object count: %d", current_obj_count)
                 except Exception as e:
-                    logging.error("Error running inference: %s", e)
+                    if DEBUG:
+                        logging.error("Error running inference: %s", e)
                     current_obj_count = 0
 
             if self.mouse_clicked:
@@ -121,7 +128,8 @@ class FrameProcessor:
 
         accuracy = (self.accurate_clicks / self.total_clicks) * 100 if self.total_clicks > 0 else 100
         self.display_accuracy(accuracy)
-        logging.info("Final Accuracy: %.2f%%", accuracy)
+        if DEBUG:
+            logging.info("Final Accuracy: %.2f%%", accuracy)
 
     def display_accuracy(self, accuracy):
         overlay.fill((0, 0, 0, 0))  # Clear the overlay
@@ -130,7 +138,8 @@ class FrameProcessor:
         text_surface = font.render(accuracy_text, True, (0, 255, 0))
         overlay.blit(text_surface, (10, screen_height - 40))
         pygame.display.update()
-        logging.info("Displayed accuracy: %s", accuracy_text)
+        if DEBUG:
+            logging.info("Displayed accuracy: %s", accuracy_text)
 
     def stop(self):
         self.stop_thread = True
@@ -138,7 +147,8 @@ class FrameProcessor:
         self.mouse_listener.stop()
         self.keyboard_listener.stop()
         pygame.quit()
-        logging.info("FrameProcessor stopped")
+        if DEBUG:
+            logging.info("FrameProcessor stopped")
 
 if __name__ == "__main__":
     api_url = "https://detect.roboflow.com"
