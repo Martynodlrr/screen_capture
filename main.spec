@@ -1,26 +1,48 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+block_cipher = None
 
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[],
-    hiddenimports=['mss'],
+    datas=[('main.py', '.'), ('.env', '.'), ('bullseye.ico', '.')],
+    hiddenimports=[
+        'scipy.special._ufuncs',
+        'scipy.special._ufuncs_cxx',
+        'scipy.special._basic',
+        'scipy.special._logit',
+        'scipy.special._comb',
+        'scipy.special._ellip_harm',
+        'scipy.special._ellip_harm_2',
+        'scipy.special._cdflib',
+        'mss',
+        'pynput.mouse',
+        'pynput.keyboard',
+        'cv2',
+        'numpy',
+        'dotenv',
+        'inference_sdk',
+        'pygame',
+        'PIL.Image',
+        'io',
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
-    noarchive=False,
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
 )
-pyz = PYZ(a.pure)
+
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
+    exclude_binaries=True,
     name='main',
     debug=False,
     bootloader_ignore_signals=False,
@@ -28,11 +50,17 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-    icon=['bullseye.ico'],
+    console=False,
+    icon='bullseye.ico'
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='main'
 )
