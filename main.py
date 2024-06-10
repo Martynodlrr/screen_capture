@@ -1,14 +1,19 @@
+import os
 from mss import mss
 import cv2
 import numpy as np
 from threading import Thread
 import time
 import pynput.mouse
-from pynput.keyboard import Listener as KeyboardListener
+from pynput.keyboard import Listener as KeyboardListener, Key, KeyCode
 from inference_sdk import InferenceHTTPClient
+from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 API_KEY = os.getenv("API_KEY")
+
+if not API_KEY:
+    raise ValueError("API_KEY not found in .env file.")
 
 class FrameProcessor:
     def __init__(self, api_url, api_key, model_id):
@@ -19,14 +24,26 @@ class FrameProcessor:
         self.mouse_listener = pynput.mouse.Listener(on_click=self.on_click)
         self.keyboard_listener = KeyboardListener(on_press=self.on_key_press)
         self.quit_keys_pressed = False
+        self.ctrl_pressed = False
+        self.alt_pressed = False
 
     def on_click(self, x, y, button, pressed):
         if button == pynput.mouse.Button.left and pressed:
             self.mouse_clicked = True
 
     def on_key_press(self, key):
-        if key == pynput.keyboard.Key.esc:
+        if key == Key.ctrl_l or key == Key.ctrl_r:
+            self.ctrl_pressed = True
+        if key == Key.alt_l or key == Key.alt_r:
+            self.alt_pressed = True
+        if key == Key.f12 and self.ctrl_pressed and self.alt_pressed:
             self.quit_keys_pressed = True
+
+    def on_key_release(self, key):
+        if key == Key.ctrl_l or key == Key.ctrl_r:
+            self.ctrl_pressed = False
+        if key == Key.alt_l or key == Key.alt_r:
+            self.alt_pressed = False
 
     def start(self):
         self.mouse_clicked = False
@@ -52,8 +69,6 @@ class FrameProcessor:
                 result = self.client.infer("current_frame.jpg", model_id=self.model_id)
                 detections = result['predictions']
                 current_obj_count = len(detections)
-
-            print(f"Detected {current_obj_count} objects in frame {frame_count}")
 
             if self.mouse_clicked:
                 total_clicks += 1
